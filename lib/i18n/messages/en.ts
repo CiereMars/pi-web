@@ -473,6 +473,8 @@ export const enLocale: LocalePlugin = {
     "chat.messages": "messages",
     "chat.toolCall": "tool call",
     "chat.toolCalls": "tool calls",
+    "chat.turnDuration": "took {time}",
+    "chat.turnElapsed": "{time} elapsed",
     "chat.collapseProcess": "Collapse process details",
     "chat.expandProcess": "Expand process details",
     "chat.filesWritten": "Files changed",

@@ -136,6 +136,8 @@ lib/
   worktree.ts               project/worktree resolution and git worktree operations
   draft-store.ts            local draft persistence
   extension-ui-queue.ts     FIFO queues for extension dialogs and custom panels, by request id; isBlockingExtensionUiRequest() (which method a run waits on)
+  turn-duration.ts          getTurnDurationMs() / getLiveTurnStart() / formatTurnDuration(): a turn's length from its anchor to its last response's end, and where the running one began; getMessageEndTime() is a message's end on pi's clock
+  server-clock.ts           noteServerTime() / serverNow() / adoptServerTime(): the browser's offset from pi's clock, estimated from arriving messages, so a device whose clock differs still times a turn right
   markdown.ts               shared markdown helpers
   markdown-blocks.ts        splitMarkdownBlocks(): where a streaming reply may be cut into blocks parsed apart
   highlight-queue.ts        code fences past a task's highlight budget get their colors in idle slices
