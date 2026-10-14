@@ -12,16 +12,6 @@ function responseEnd(message: AgentMessage): number | undefined {
   return start !== undefined && duration !== undefined ? start + duration : undefined;
 }
 
-/**
- * When a message ended, on pi's clock: a user message or tool result is made at that moment, a
- * response ends when its request started plus the time pi recorded for it.
- */
-export function getMessageEndTime(message: AgentMessage): number | undefined {
-  if (message.role === "assistant") return responseEnd(message);
-  if (message.role === "user" || message.role === "toolResult") return recordedMs(message.timestamp);
-  return undefined;
-}
-
 /** A reply that answered the turn: a run that follows it was started later, e.g. by an extension's message. */
 function answersTurn(message: AgentMessage): boolean {
   return message.role === "assistant" && (message.stopReason === "stop" || message.stopReason === "length");
@@ -61,26 +51,6 @@ export function getTurnDurationMs(messages: AgentMessage[], anchorIdx: number, e
   }
   if (!lastResponseTimed || end === undefined) return undefined;
   return Math.max(0, end - start - idle);
-}
-
-/**
- * When the running turn started: its anchor's time or, for a run an extension started after the
- * turn was answered, the end of that answer and the time of the message that started the run.
- */
-export function getLiveTurnStart(messages: AgentMessage[], anchorIdx: number): number | undefined {
-  let start = recordedMs(messages[anchorIdx]?.timestamp);
-  if (start === undefined) return undefined;
-  let answered = false;
-  for (let idx = anchorIdx + 1; idx < messages.length; idx++) {
-    const message = messages[idx];
-    if (message.role === "assistant") {
-      answered = answersTurn(message);
-      if (answered) start = Math.max(start, responseEnd(message) ?? start);
-    } else if (answered) {
-      start = Math.max(start, recordedMs(message.timestamp) ?? start);
-    }
-  }
-  return start;
 }
 
 /** A turn's length as the chat shows it, in whole seconds: 14s, then 3m 5s, then 1h 2m 5s. */

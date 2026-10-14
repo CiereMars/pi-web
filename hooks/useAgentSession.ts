@@ -27,7 +27,6 @@ import { CONFIGURED_TOOL_PRESET, getPresetFromToolNames, getToolNamesForPreset, 
 import type { SessionStatsInfo } from "@/lib/pi-types";
 import { mergeSessionStats, type SessionFileStats } from "@/lib/session-stats";
 import { userMessageKey } from "@/lib/prompt-recovery";
-import { adoptServerTime, noteMessageEnd, serverNow } from "@/lib/server-clock";
 import { AgentEventConnection } from "@/lib/agent-event-connection";
 import { isNestedToolExecutionEvent, isSystemMessageEvent } from "@/lib/agent-event-wire";
 import { getToolExecutionProgress } from "@/lib/tool-execution-progress";
@@ -1573,8 +1572,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         if (!agentRunningRef.current) break;
         if (isSystemMessageEvent(event)) break;
         const completed = event.message as AgentMessage | undefined;
-        // A message that just ended carries pi's clock: each one tells the browser's offset from it.
-        if (completed) noteMessageEnd(completed);
         if (completed && completed.role === "user") {
           // Delivered steering/follow-up messages surface here as user
           // messages. The run's initial prompt also emits one, but handleSend
@@ -1587,10 +1584,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           setMessages((prev) => {
             const last = prev[prev.length - 1];
             if (optimisticKey && last?.role === "user" && userMessageKey(last) === optimisticKey) {
-              if (optimisticKey !== deliveredKey) return [...prev.slice(0, -1), delivered];
-              // The bubble stays; it takes pi's time for the message, so the turn is timed on one clock.
-              const adopted = adoptServerTime(last, delivered);
-              return adopted === last ? prev : [...prev.slice(0, -1), adopted];
+              return optimisticKey === deliveredKey
+                ? prev
+                : [...prev.slice(0, -1), delivered];
             }
             return [...prev, delivered];
           });
@@ -1757,7 +1753,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       content: imageBlocks?.length
         ? [...(message.trim() ? [{ type: "text" as const, text: message }] : []), ...imageBlocks]
         : message,
-      timestamp: serverNow(),
+      timestamp: Date.now(),
     };
     setMessages((prev) => [...prev, userMsg]);
     optimisticUserMessageKeyRef.current = userMessageKey(userMsg);
