@@ -22,44 +22,63 @@ export function getMessageEndTime(message: AgentMessage): number | undefined {
   return undefined;
 }
 
+/** A reply that answered the turn: a run that follows it was started later, e.g. by an extension's message. */
+function answersTurn(message: AgentMessage): boolean {
+  return message.role === "assistant" && (message.stopReason === "stop" || message.stopReason === "length");
+}
+
 /**
  * How long a finished turn took: from its anchor (the user's message, a compaction summary,
  * a subagent completion) until the last response or tool result in `messages[anchorIdx + 1, endIdx)`
- * ended. Undefined when the anchor has no time, or when the turn's last response predates
- * `durationMs`: its timestamp is when it started, so the turn's end is unknown.
+ * ended, less the waits between an answer and a run an extension started after it (its message,
+ * e.g. pi's `triggerTurn`, is no anchor). Undefined when the anchor has no time, or when the turn's
+ * last response predates `durationMs`: its timestamp is when it started, so the turn's end is unknown.
  */
 export function getTurnDurationMs(messages: AgentMessage[], anchorIdx: number, endIdx: number): number | undefined {
   const start = recordedMs(messages[anchorIdx]?.timestamp);
   if (start === undefined) return undefined;
   let end: number | undefined;
   let lastResponseTimed = false;
+  let idle = 0;
+  let answeredAt: number | undefined;
+  let nextRunAt: number | undefined;
   for (let idx = anchorIdx + 1; idx < endIdx; idx++) {
     const message = messages[idx];
     if (message.role === "assistant") {
+      if (answeredAt !== undefined && nextRunAt !== undefined) idle += Math.max(0, nextRunAt - answeredAt);
+      answeredAt = nextRunAt = undefined;
       const ended = responseEnd(message);
       lastResponseTimed = ended !== undefined;
       if (ended !== undefined) end = Math.max(end ?? ended, ended);
+      if (ended !== undefined && answersTurn(message)) answeredAt = end;
     } else if (message.role === "toolResult") {
       const ended = recordedMs(message.timestamp);
       if (ended !== undefined) end = Math.max(end ?? ended, ended);
+    } else if (answeredAt !== undefined) {
+      const at = recordedMs(message.timestamp);
+      if (at !== undefined) nextRunAt = Math.max(nextRunAt ?? at, at);
     }
   }
   if (!lastResponseTimed || end === undefined) return undefined;
-  return Math.max(0, end - start);
+  return Math.max(0, end - start - idle);
 }
 
 /**
- * When the running turn started: its anchor's time, or the end of a reply that already
- * finished it, for a run an extension started after the turn was answered.
+ * When the running turn started: its anchor's time or, for a run an extension started after the
+ * turn was answered, the end of that answer and the time of the message that started the run.
  */
 export function getLiveTurnStart(messages: AgentMessage[], anchorIdx: number): number | undefined {
   let start = recordedMs(messages[anchorIdx]?.timestamp);
   if (start === undefined) return undefined;
+  let answered = false;
   for (let idx = anchorIdx + 1; idx < messages.length; idx++) {
     const message = messages[idx];
-    if (message.role !== "assistant" || (message.stopReason !== "stop" && message.stopReason !== "length")) continue;
-    const ended = responseEnd(message);
-    if (ended !== undefined) start = Math.max(start, ended);
+    if (message.role === "assistant") {
+      answered = answersTurn(message);
+      if (answered) start = Math.max(start, responseEnd(message) ?? start);
+    } else if (answered) {
+      start = Math.max(start, recordedMs(message.timestamp) ?? start);
+    }
   }
   return start;
 }
