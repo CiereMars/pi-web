@@ -1235,8 +1235,10 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
 
                 if (hasAnchor) rendered.push(renderMessage(userIdx));
 
-                // A leading segment without its anchor has no start time.
-                const turnDurationMs = hasAnchor ? getTurnDurationMs(messages, userIdx, endIdx) : undefined;
+                // A leading segment without its anchor has no start time, and neither has the bubble a
+                // send shows at once: it carries the browser's clock, not pi's, until the reload after
+                // the run brings the session file's entry (the only kind with an entry id).
+                const turnDurationMs = hasAnchor && entryIds[userIdx] ? getTurnDurationMs(messages, userIdx, endIdx) : undefined;
 
                 const finalViews = getFinalAnswerViews(finalAnswerViewCache, messages[finalAssistantIdx] as AssistantMessage);
                 const finalAnswerMessage = finalViews.answer;
