@@ -212,6 +212,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, durationMs, defaultE
           alignItems: "center",
           gap: 8,
           width: "auto",
+          maxWidth: "100%",
           minHeight: 24,
           padding: "2px 0",
           border: "none",
